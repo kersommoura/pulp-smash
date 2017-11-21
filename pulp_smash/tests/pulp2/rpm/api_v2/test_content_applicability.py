@@ -5,6 +5,8 @@
     http://docs.pulpproject.org/dev-guide/integration/rest-api/consumer/applicability.html
 """
 import unittest
+import random
+import threading
 from types import MappingProxyType
 from urllib.parse import urljoin
 
@@ -214,3 +216,114 @@ class BasicTestCase(unittest.TestCase):
             self.assertEqual(len(applicability[0]['applicability']['rpm']), 0)
         with self.subTest(comment='verify consumers listed in report'):
             self.assertEqual(applicability[0]['consumers'], [consumer_id])
+
+
+class ApplicabilityRaceCondTestCase(unittest.TestCase):
+    """Verify race condition."""
+
+    def test_all(self):
+        """Verify race condition.
+
+        Test definitions:
+
+        * Consumer: machine registered with Pulp. This machine has some Pulp
+        repositories are enabled in its YUM config.
+
+        * Consumer Profile: Set of packages installed on consumer machine.
+
+        * Applicability: Which packages and/or errata should be upgrade or
+        applied.
+
+        Assumptions:
+
+        Applicability is calculate for each consumer profile.
+
+        If there are multiple consumers with the same consumer profile
+        applicability will be calculated for only one.
+
+        For instance, if there are  2 consumers, (1 and 2), and both have the
+        same consumer profile A. Race condition happened when there is no
+        applicability for profile A, and it is calculated in parallel for
+        consumer 1 and  consumer 2.
+
+        Goal of test: Verify race condition. How? Calculate applicability for
+        consumers with the same consumer profile in parallel using Threads,
+        since this will be an I/O bound activity.
+        """
+        cfg = config.get_config()
+        client = api.Client(cfg, api.json_handler)
+        body = gen_repo()
+        body['importer_config']['feed'] = RPM_UNSIGNED_FEED_URL
+        body['distributors'] = [gen_distributor()]
+        repo = client.post(REPOSITORY_PATH, body)
+        self.addCleanup(client.delete, repo['_href'])
+        repo = client.get(repo['_href'], params={'details': True})
+        print(repo['_href'])
+        utils.sync_repo(cfg, repo)
+        utils.publish_repo(cfg, repo)
+
+        # Create consumers
+        consumers = []
+        for _ in range(4):
+            consumer = client.post(CONSUMERS_PATH, {'id': utils.uuid4()})
+            consumers.append(consumer)
+            self.addCleanup(client.delete, consumer['consumer']['_href'])
+
+        # Bind the consumers
+        for consumer in consumers:
+            path = urljoin(CONSUMERS_PATH, consumer['consumer']['id'] + '/')
+            path = urljoin(path, 'bindings/')
+            client.post(path, {
+                'distributor_id': repo['distributors'][0]['id'],
+                'notify_agent': False,
+                'repo_id': repo['id'],
+            })
+
+        for i in range(len(consumers)*3):
+            # Create consumer profiles.
+            rpm_with_erratum_metadata = RPM_WITH_ERRATUM_METADATA.copy()
+            rpm_with_erratum_metadata['version'] = '4.0.' + str(i)
+            rpm_without_erratum_metadata = RPM_WITHOUT_ERRATUM_METADATA.copy()
+            rpm_without_erratum_metadata['version'] = '0.0.1.' + str(i)
+
+            for consumer in consumers:
+                path = urljoin(CONSUMERS_PATH, consumer['consumer']['id'] + '/')
+                path = urljoin(path, 'profiles/')
+                client.post(path, {
+                    'content_type': 'rpm',
+                    'profile': [
+                        rpm_with_erratum_metadata,
+                        rpm_without_erratum_metadata,
+                    ]
+                })
+
+            # Regenerate applicability for the consumers
+            consumer_ids = [consumer['consumer']['id'] for consumer in consumers]
+            threads = tuple(
+                threading.Thread(
+                    target=self.calculate_applicability,
+                    args=(cfg, consumer_id)
+                )
+                for consumer_id in consumer_ids
+            )
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            # Get content applicability reports, as a sanity check
+            applicability = client.post(CONSUMERS_CONTENT_APPLICABILITY_PATH, {
+                'content_types': ['rpm'],
+                'criteria': {'filters': {'id': {'$in': consumer_ids}}},
+            })
+            from pprint import pprint
+            pprint(applicability)
+            validate(applicability, CONTENT_APPLICABILITY_REPORT_SCHEMA)
+
+    @staticmethod
+    def calculate_applicability(cfg, consumer_id):
+        """Calculate content applicability for a consumer."""
+        api.Client(cfg).post(
+            CONSUMERS_ACTIONS_CONTENT_REGENERATE_APPLICABILITY_PATH,
+            {'consumer_criteria': {'filters': {'id': {'$in': [consumer_id]}}}}
+        )
