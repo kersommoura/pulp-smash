@@ -59,6 +59,13 @@ CONTENT_UPLOAD_PATH = '/pulp/api/v2/content/uploads/'
    http://docs.pulpproject.org/en/latest/dev-guide/integration/rest-api/content/upload.html#creating-an-upload-request
 """
 
+EVENT_NOTIFIER_PATH = 'pulp/api/v2/events/'
+"""See: `Event Listener Creation and Configuration`_.
+
+.. _Event Listener Creation and Configuration:
+    https://docs.pulpproject.org/dev-guide/integration/rest-api/event/crud.html
+"""
+
 ERROR_KEYS = frozenset((
     '_href',
     'error',

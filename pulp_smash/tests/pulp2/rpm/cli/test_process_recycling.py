@@ -2,9 +2,17 @@
 """Test Pulp's ability to recycle processes."""
 import unittest
 
-from pulp_smash import cli, config, selectors, utils
+from pulp_smash import api, cli, config, selectors, utils
 from pulp_smash.constants import RPM_UNSIGNED_FEED_URL
-from pulp_smash.tests.pulp2.constants import PULP_SERVICES
+from pulp_smash.tests.pulp2.constants import (
+    EVENT_NOTIFIER_PATH,
+    PULP_SERVICES,
+    REPOSITORY_PATH,
+)
+from pulp_smash.tests.pulp2.rpm.api_v2.utils import (
+    gen_distributor,
+    gen_repo,
+)
 from pulp_smash.tests.pulp2.rpm.utils import set_up_module
 
 
@@ -105,3 +113,76 @@ class MaxTasksPerChildTestCase(unittest.TestCase):
         procs = get_pulp_worker_procs(cfg)
         for proc in procs:
             self.assertNotIn('--maxtasksperchild=2', proc, procs)
+
+
+class EventNotifierTestCase(unittest.TestCase):
+    """Verify how event notifier handles process recycling."""
+
+    def test_all(self):
+        """Verify how event notifier handles process recycling. 
+
+        Do the following:
+
+        1. Enable process recycling.
+        2. Configure event notifier.
+        3. Assert that the previous steps are working as expected.
+        4. Dispatch a lot of tasks.
+        5. Assert that not all events are notified.
+        """
+
+        cfg = config.get_config()
+        if selectors.bug_is_untestable(2903, cfg.pulp_version):
+            self.skipTest('https://pulp.plan.io/issues/2903')
+
+        # Step 1
+        svc_mgr = cli.GlobalServiceManager(cfg)
+        sudo = () if utils.is_root(cfg) else ('sudo',)
+        set_opt = sudo + (
+            'sed', '-i', '-e',
+            's/.*PULP_MAX_TASKS_PER_CHILD=[0-9]*$/PULP_MAX_TASKS_PER_CHILD=2/',
+            '/etc/default/pulp_workers'
+        )
+        reset_opt = sudo + (
+            'sed', '-i', '-e',
+            's/^PULP_MAX_TASKS_PER_CHILD=2$/# PULP_MAX_TASKS_PER_CHILD=2/',
+            '/etc/default/pulp_workers'
+        )
+        cli_client = cli.Client(cfg)
+        cli_client.run(set_opt)
+        self.addCleanup(svc_mgr.restart, PULP_SERVICES)
+        self.addCleanup(cli_client.run, reset_opt)
+        svc_mgr.restart(PULP_SERVICES)
+
+        # Step 2
+        api_client = api.Client(cfg, api.json_handler)
+        body_event = {
+            "notifier_type_id": "http",
+            "notifier_config": {
+                "url": "http://localhost/api"
+            },
+            "event_types": ["repo.sync.finish", "repo.publish.finish"]
+        }
+
+        event = api_client.post(EVENT_NOTIFIER_PATH, body_event)
+        self.addCleanup(api_client.delete, event['_href'])
+
+        # Step 3
+        for _ in range(3):
+            self.gen_tasks()
+
+        response = api_client.get(event['_href'])
+        from pprint import pprint
+        pprint(response)
+
+    def gen_tasks(self):
+        """Create a lot tasks."""
+        cfg = config.get_config()
+        client = api.Client(cfg, api.json_handler)
+        body = gen_repo()
+        body['importer_config']['feed'] = RPM_UNSIGNED_FEED_URL
+        body['distributors'] = [gen_distributor()]
+        repo = client.post(REPOSITORY_PATH, body)
+        self.addCleanup(client.delete, repo['_href'])
+        repo = client.get(repo['_href'], params={'details': True})
+        utils.sync_repo(cfg, repo)
+        utils.publish_repo(cfg, repo)
