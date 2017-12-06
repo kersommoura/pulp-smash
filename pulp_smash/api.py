@@ -80,6 +80,9 @@ def _handle_202(server_config, response):
     if response.status_code == 202:  # "Accepted"
         _check_http_202_content_type(response)
         call_report = response.json()
+        from pprint import pprint
+        pprint('call_report was called')
+        pprint(call_report)
         task_error_states = ('error', 'exception', 'traceback')
         if server_config.pulp_version >= Version('3'):
             # Necessary adjustments due to the current state of Pulp3 tasks
@@ -370,6 +373,8 @@ def poll_spawned_tasks(server_config, call_report, pulp_system=None):
     """
     if not pulp_system:
         pulp_system = server_config.get_systems('api')[0]
+        # from pdb import set_trace
+        # set_trace()
     if server_config.pulp_version < Version('3'):
         hrefs = (task['_href'] for task in call_report['spawned_tasks'])
         for href in hrefs:
@@ -434,4 +439,4 @@ def poll_task(server_config, href, pulp_system=None):
                 'Task {} is ongoing after {} polls.'.format(href, poll_limit)
             )
         print('it was called')
-        sleep(5)
+        sleep(0.5)
