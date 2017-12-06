@@ -11,12 +11,17 @@ This module integrates tightly with `Pulp Fixtures`_. `Pulp Smash #134`_ and
     http://docs.pulpproject.org/en/latest/user-guide/admin-client/orphan.html
 """
 import random
+import threading
 import unittest
+from datetime import datetime
 from urllib.parse import urljoin
+
+from requests.exceptions import HTTPError
 
 from packaging.version import Version
 
 from pulp_smash import api, config, selectors, utils
+from pulp_smash.exceptions import TaskReportError
 from pulp_smash.constants import RPM_SIGNED_FEED_URL
 from pulp_smash.tests.pulp2.constants import (
     ORPHANS_PATH,
@@ -190,3 +195,74 @@ class OrphansTestCase(unittest.TestCase):
         ).get(orphan['_href'])
         with self.subTest(comment='verify erratum is unavailable'):
             self.assertEqual(response.status_code, 404)
+
+
+class OrphansRaceConditionTestCase(unittest.TestCase):
+    """Remove orphans in parallel to simulate race condition."""
+
+    def test_all(self):
+        """Remove orphans in parallel to simulate race condition.
+
+
+        Do the following:
+
+        1. Create multiple repos.
+        2. Sync the previous created repos.
+        3. Delete the repos.
+        4. Run 2 remove orphan remove at the same time.
+        """
+        cfg = config.get_config()
+        repos = []
+        client = api.Client(cfg, api.json_handler)
+        body = gen_repo()
+        body['importer_config']['feed'] = RPM_SIGNED_FEED_URL
+        repo = client.post(REPOSITORY_PATH, body)
+        utils.sync_repo(cfg, repo)
+        # Delete repo
+        client.delete(repo['_href'])
+        orphan = random.choice(client.get(urljoin(ORPHANS_PATH, 'rpm/')))
+        # from pprint import pprint
+        # pprint(orphan)
+        # from pdb import set_trace
+        # set_trace()
+        # threads = tuple(
+        #     threading.Thread(
+        #         target=self.remove_orphans,
+        #         args=(cfg, orphan,)
+        #     )
+        #     for _ in range(3)
+        # )
+        # for thread in threads:
+        #     thread.start()
+        #
+        # for thread in threads:
+        #     thread.join()
+        #
+        self.remove_orphans(cfg, orphan)
+        self.remove_orphans(cfg, orphan)
+
+    @staticmethod
+    def remove_orphans(cfg, orphan):
+        """Remove orphans given orphan id"""
+        client = api.Client(cfg, api.code_handler)
+        # orphan['_content_type_id']
+        # orphan['_id']
+        # r = client.post('pulp/api/v2/content/actions/delete_orphans/', [{
+        #     'content_type_id': 'rpm',
+        #     'unit_id': orphan['_id'],
+        # }])
+        path = urljoin(orphan['_content_type_id'], orphan['_id'])
+        # r = {}
+        try:
+            r = client.delete(orphan['_href'])
+        except HTTPError as context:
+            from pprint import pprint
+            pprint(context)
+            pprint(r.json())
+        # client.delete()
+        # from pprint import pprint
+        # pprint(datetime.now())
+        # pprint('---------------------')
+        # pprint(orphan)
+        # pprint(r.json())
+        #
