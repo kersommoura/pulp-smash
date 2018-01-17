@@ -32,3 +32,5 @@ def gen_publisher(repo):
         'repository': repo['_href'],
         'auto_publish': choice((False, True))
     }
+
+

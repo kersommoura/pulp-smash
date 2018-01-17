@@ -7,6 +7,8 @@ BASE_PATH = '/api/v3/'
 
 BASE_IMPORTER_PATH = urljoin(BASE_PATH, 'importers/')
 
+BASE_PUBLICATION_PATH = urljoin(BASE_PATH, 'publications/')
+
 BASE_PUBLISHER_PATH = urljoin(BASE_PATH, 'publishers/')
 
 FILE_IMPORTER_PATH = urljoin(BASE_IMPORTER_PATH, 'file/')
