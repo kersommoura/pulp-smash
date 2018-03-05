@@ -1,11 +1,13 @@
 # coding=utf-8
 """Tests that CRUD users."""
 from random import choice
+import secrets
 import unittest
 
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, selectors, utils
+from pulp_smash.exceptions import TaskReportError
 from pulp_smash.tests.pulp3.constants import USER_PATH
 from pulp_smash.tests.pulp3.pulpcore.utils import set_up_module as setUpModule  # noqa pylint:disable=unused-import
 from pulp_smash.tests.pulp3.utils import get_auth
@@ -106,6 +108,36 @@ class UsersCRUDTestCase(unittest.TestCase, utils.SmokeTest):
             self.client.get(self.user['_href'])
 
 
+class UserEdgeCasesTestCase(unittest.TestCase, utils.SmokeTest):
+    """Explores edge cases when creating users."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Create class-wide variables."""
+        cls.cfg = config.get_config()
+        cls.client = api.Client(cls.cfg, api.echo_handler)
+        cls.client.request_kwargs['auth'] = get_auth()
+
+    # def test_01_duplicate_users(self):
+    #     """Create duplicate users."""
+    #     attrs = _gen_verbose_user_attrs()
+    #     user = self.client.post(USER_PATH, attrs)
+    #     # self.client.delete(user['_href'])
+    #     with self.assertRaises(Exception) as context:
+    #         self.client.post(USER_PATH, attrs)
+    #
+    #     from pprint import pprint
+    #     pprint(context.exception)
+
+    def test_02_create_long_username(self):
+        """Create a long username."""
+        attrs = _gen_verbose_user_attrs()
+        attrs['username'] = secrets.token_urlsafe(160)
+        from pprint import pprint
+        pprint(attrs['username'])
+        user = self.client.post(USER_PATH, attrs).json()
+        pprint(user)
+
 def _gen_verbose_user_attrs():
     """Generate a dict with lots of user attributes.
 
@@ -119,3 +151,5 @@ def _gen_verbose_user_attrs():
         'password': utils.uuid4(),
         'is_superuser': choice((True, False)),
     }
+
+
