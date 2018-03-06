@@ -13,6 +13,8 @@ BASE_PUBLISHER_PATH = urljoin(BASE_PATH, 'publishers/')
 
 CONTENT_PATH = urljoin(BASE_PATH, 'content/')
 
+DOCS_PATH = urljoin(BASE_PATH, 'docs/')
+
 DISTRIBUTION_PATH = urljoin(BASE_PATH, 'distributions/')
 
 FILE_CONTENT_PATH = urljoin(CONTENT_PATH, 'file/')
