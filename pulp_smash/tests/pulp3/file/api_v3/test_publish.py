@@ -73,22 +73,22 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase, utils.SmokeTest):
                 {'add_content_units': [file_content['_href']]}
             )
         versions = get_repo_versions(repo)
-        non_latest = choice(versions[:-1])
-
-        # Step 2
-        publication = publish_repo(cfg, publisher, repo)
-
-        # Step 3
-        self.assertEqual(publication['repository_version'], versions[-1])
-
-        # Step 4
-        publication = publish_repo(cfg, publisher, repo, non_latest)
-
-        # Step 5
-        self.assertEqual(publication['repository_version'], non_latest)
-
-        # Step 6
-        with self.assertRaises(HTTPError):
-            body = {'repository': repo['_href'],
-                    'repository_version': non_latest}
-            client.post(urljoin(publisher['_href'], 'publish/'), body)
+        # non_latest = choice(versions[:-1])
+        #
+        # # Step 2
+        # publication = publish_repo(cfg, publisher, repo)
+        #
+        # # Step 3
+        # self.assertEqual(publication['repository_version'], versions[-1])
+        #
+        # # Step 4
+        # publication = publish_repo(cfg, publisher, repo, non_latest)
+        #
+        # # Step 5
+        # self.assertEqual(publication['repository_version'], non_latest)
+        #
+        # # Step 6
+        # with self.assertRaises(HTTPError):
+        #     body = {'repository': repo['_href'],
+        #             'repository_version': non_latest}
+        #     client.post(urljoin(publisher['_href'], 'publish/'), body)

@@ -272,8 +272,21 @@ def get_repo_versions(repo):
     :returns: A sorted list with the hrefs of repository versions.
     """
     client = api.Client(config.get_config(), api.json_handler)
+    from pprint import pprint
+    pprint(client.get(repo['_versions_href']))
     versions = client.get(repo['_versions_href'])['results']
     return sorted(
         [version['_href'] for version in versions],
         key=lambda url: int(urlsplit(url).path.split('/')[-2])
     )
+
+
+def parse_pages(response, cfg=None ):
+    """Parse url pages."""
+    if cfg is None:
+        cfg = config.get_config()
+    client = api.Client(cfg, api.json_handler)
+    if response['next']:
+        while True:
+            page = client.get(response['next'])
+            yield page
