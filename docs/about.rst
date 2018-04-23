@@ -56,6 +56,15 @@ Contributing
 Contributions are encouraged. The easiest way to contribute is to submit a pull
 request on GitHub, but patches are welcome no matter how they arrive.
 
+Making Changes
+
+ * Create a branch from where you want to base your work. Pulp Smash uses a
+   single master branch model.
+ * Assure that you are using the most updated master branch to create your branch.
+ * Making commits of logical units.
+ * Run ``make all`` and fix programming style errors.
+ * Make sure your commmit messages are according to `code standards`_
+
 Learning Pulp Smash
 ~~~~~~~~~~~~~~~~~~~
 
@@ -108,6 +117,12 @@ in the existing code base.
 
 Review Process
 ~~~~~~~~~~~~~~
+There are two main areas to be reviewed: code standards and the logic that this
+new piece of code is introducing.
+
+Pulp Smash team is relying on automation tools to verify the code standards,
+and constantly looking for ways to increase this automation. Thus allowing the
+reviewer to focus in the logic itself.
 
 Changes that meet the `code standards`_ will be reviewed by a Pulp Smash
 developer and are likely to be merged.
