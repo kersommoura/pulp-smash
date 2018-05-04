@@ -63,6 +63,23 @@ class CRUDRemotesTestCase(unittest.TestCase, utils.SmokeTest):
             with self.subTest(key=key):
                 self.assertEqual(page['results'][0][key], val)
 
+
+    @selectors.skip_if(bool, 'remote', False)
+    def test_03_update_url(self):
+        """Update an remote URL."""
+        from pprint import pprint
+        body = {}
+        remote = self.client.get(self.remote['_href'])
+        pprint(remote)
+        body['url'] = utils.uuid4()
+        pprint(body['url'])
+        remote = self.client.patch(self.remote['_href'], body)
+        type(self).remote = self.client.get(self.remote['_href'])
+        pprint(self.remote)
+        for key, val in body.items():
+            with self.subTest(key=key):
+                self.assertEqual(self.remote[key], val)
+
     @selectors.skip_if(bool, 'remote', False)
     def test_03_partially_update(self):
         """Update an remote using HTTP PATCH."""
