@@ -5,6 +5,8 @@ import unittest
 from random import choice
 from urllib.parse import urljoin
 
+from requests.exceptions import HTTPError
+
 from pulp_smash import api, config, selectors, utils
 from pulp_smash.constants import FILE_FEED_URL, FILE_URL
 from pulp_smash.tests.pulp3.constants import (
@@ -93,3 +95,43 @@ class DownloadContentTestCase(unittest.TestCase, utils.SmokeTest):
         unit_url = urljoin(unit_url, unit_path)
         pulp_hash = hashlib.sha256(client.get(unit_url).content).hexdigest()
         self.assertEqual(fixtures_hash, pulp_hash)
+
+
+class DistributionFieldsTestCase(unittest.TestCase):
+    """Verify distribution fields combination."""
+
+    def test_all(self):
+        """Verify distribution fields combination."""
+        cfg = config.get_config()
+        client = api.Client(cfg, api.json_handler)
+        client.request_kwargs['auth'] = get_auth()
+        body = gen_remote(urljoin(FILE_FEED_URL, 'PULP_MANIFEST'))
+        remote = client.post(FILE_REMOTE_PATH, body)
+        self.addCleanup(client.delete, remote['_href'])
+        repos = []
+        publishers = []
+        publications = []
+        for _ in range(2):
+            repo = (client.post(REPO_PATH, gen_repo()))
+            self.addCleanup(client.delete, repo['_href'])
+            sync(cfg, remote, repo)
+            repo = client.get(repo['_href'])
+            repos.append(repo)
+            publisher = client.post(FILE_PUBLISHER_PATH, gen_publisher())
+            self.addCleanup(client.delete, publisher['_href'])
+            publishers.append(publisher)
+            publication = publish(cfg, publisher, repo)
+            self.addCleanup(client.delete, publication['_href'])
+            publications.append(publication)
+
+        from pprint import pprint
+        pprint(publications)
+        pprint(publisher)
+
+        body = gen_distribution()
+        body['repository'] = repos[0]['_href']
+        body['publisher'] = publishers[1]['_href']
+        body['publication'] = publications[0]['_href']
+        # client.response_handler = api.code_handler
+        # with self.assertRaises(HTTPError) as context:
+        distribution = client.post(DISTRIBUTION_PATH, body)
