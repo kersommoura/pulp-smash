@@ -547,6 +547,8 @@ class PulpSmashConfig():
             pulp_system = self.get_systems('api')[0]
         kwargs = deepcopy(pulp_system.roles['api'])
         kwargs['auth'] = tuple(self.pulp_auth)
+        from pprint import pprint
+        pprint(kwargs['auth'])
         for key in ('port', 'scheme'):
             kwargs.pop(key, None)
         return kwargs
