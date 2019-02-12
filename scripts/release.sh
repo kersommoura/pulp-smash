@@ -96,7 +96,7 @@ git commit \
     --message "Release version ${new_version}" \
     --message "Shortlog of commits since last release:" \
     --message "${commit_message}"
-git tag --annotate "${new_verison}" --message "Pulp Smash ${new_version}" \
+git tag --annotate "${new_version}" --message "Pulp Smash ${new_version}" \
         --message "${commit_message}"
 
 fmt <<EOF
