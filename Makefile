@@ -23,7 +23,7 @@ help:
 # is compiled, and Sphinx does not needlessly recompile.) More broadly, we
 # order dependencies by execution time and (anecdotal) likelihood of finding
 # issues. ¶ `test-coverage` is a functional superset of `test`. Why keep both?
-all: test-coverage lint docs-clean docs-html dist-clean dist
+all: test-coverage docs-clean docs-html dist-clean dist
 
 dist:
 	./setup.py --quiet sdist bdist_wheel --universal test
@@ -42,24 +42,34 @@ docs-api:
 	scripts/gen_api_docs.sh
 
 install-dev:
+	pip install -q --upgrade pip
 	pip install -q -e .[dev]
 
-lint: lint-flake8 lint-pylint
+lint: pre-commit
 
 # E501 and F401 are ignored because Pylint performs similar checks.
 # W504 ignored since it requires line breaks after binary operators.
 lint-flake8:
-	flake8 . --ignore E501,F401,W504 --exclude docs/_build
+	flake8 . --ignore E501,F401,W504,Q000 --exclude docs/_build
 
 lint-pylint:
-	pylint -j $(CPU_COUNT) --reports=n --disable=I,unnecessary-pass \
+	pylint -j $(CPU_COUNT) --reports=n --disable=C0330,W0212,W0611,I,unnecessary-pass \
 		docs/conf.py \
 		pulp_smash \
 		setup.py \
 		tests
 
+pre-commit:
+	@echo "Linting Python files."
+	pre-commit run -a
+	@echo "Finished."
+
 publish: dist
 	twine upload dist/*
+
+setup-git: install-pre-commit
+	pre-commit install
+	git config branch.autosetuprebase always
 
 test:
 	python3 $(TEST_OPTIONS)
