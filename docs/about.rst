@@ -67,8 +67,7 @@ Code Standards
 
 Please adhere to the following guidelines:
 
-* Code should be compliant with `PEP-8`_. It is recommended to check for
-  compliance by running ``make lint``.
+* Code should be compliant with `Black `_ code style with a length line of 79 characteres.
 * Pull requests must pass the `Travis CI`_ continuous integration tests. You can
   locally verify your changes before submitting a pull request by executing
   ``make all``.
