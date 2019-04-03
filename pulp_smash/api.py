@@ -238,12 +238,14 @@ def task_handler(client, response):
     # JSON handler takes care of pooling tasks until it is done
     # If task errored then json_handler will raise the error
     response_dict = json_handler(client, response)
-    if "task" not in response_dict:
+    if response.status_code == 202 and "task" not in response_dict:
         raise exceptions.CallReportError(
             "Response does not contains a task call_report: {}".format(
                 response_dict
             )
         )
+
+    response_dict = json_handler(client, response)
 
     # Get the final state of the done task
     done_task = client.using_handler(json_handler).get(response_dict["task"])
