@@ -45,7 +45,8 @@ install-dev:
 	make setup-pre-commit
 
 publish: dist
-	twine upload dist/*
+	twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+
 
 setup-pre-commit:
 	pre-commit install
